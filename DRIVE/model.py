@@ -33,12 +33,12 @@ def Conv(n_input, n_output, k_size=4, stride=2, padding=0, bn=False, dropout=0):
 
 
 class Unet(nn.Module):
-    def __init__(self, n_classes=2):
+    def __init__(self, n_classes=1):
         super().__init__()
         
-        self.resnet = models.resnet34(pretrained=True)
+        self.resnet = models.resnet34(pretrained=True) 
         for param in self.resnet.parameters():
-            param.requires_grad = False 
+            param.requires_grad = False
         self.conv1 = self.resnet.conv1
         self.bn1 = self.resnet.bn1
         self.relu = self.resnet.relu
@@ -51,9 +51,11 @@ class Unet(nn.Module):
         self.layer2 = self.resnet.layer2 # 128
         self.layer3 = self.resnet.layer3 # 256
         self.layer4 = self.resnet.layer4 # 512
+        self.layer5 = Conv(512, 1024, 1, 1, 0)
         
         # convolution layer, use to reduce the number of channel => reduce weight number
-        self.conv_4 = Conv(512, 512, 1, 1, 0)  
+        self.conv_5 = Conv(1024, 1024, 1, 1, 0)
+        self.conv_4 = Conv(1024, 512, 1, 1, 0)  
         self.conv_3 = Conv(512, 256, 1, 1, 0)   
         self.conv_2 = Conv(256, 128, 1, 1, 0)   
         self.conv_1 = Conv(128, 64, 1, 1, 0)    
@@ -81,10 +83,16 @@ class Unet(nn.Module):
 
         x = self.layer2(x)
         skip_3 = x # 128
+
         x = self.layer3(x)
         skip_4 = x # 256
+
+        x = self.layer4(x)
+        skip_5 = x # 512
         
-        x5 = self.layer4(x) # 512
+        x5 = self.layer5(x) # 1024
+        x5 = self.conv_4(x5) # 512
+        x5 = torch.cat([x5, skip_5], dim=1) # 1024
         x5 = self.conv_4(x5) # 512
         
         x4 = self.deconv4(x5) # 256
